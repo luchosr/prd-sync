@@ -7,7 +7,7 @@
 | Version           | 1.0                                       |
 | Status            | Draft — ready for spec-driven development |
 | Owner             | Luciano Ramello                           |
-| Stack             | Node 22 · TypeScript · pnpm               |
+| Stack             | Node 24 · TypeScript · pnpm               |
 | Target repository | `luchosr/prd-sync`                        |
 
 ---
@@ -124,7 +124,7 @@ interface Prd {
 
 | Area             | Choice                               | Rationale                                                       |
 | ---------------- | ------------------------------------ | --------------------------------------------------------------- |
-| Runtime          | Node 22 LTS                          | Native `fetch`, no polyfills                                    |
+| Runtime          | Node 24 LTS                          | Native `fetch`, no polyfills, native TS type stripping           |
 | Language         | TypeScript (strict)                  | Explicit contracts between parser, planner and client           |
 | Package manager  | pnpm                                 | Author's preference                                             |
 | Markdown parsing | `unified` + `remark-parse` (mdast)   | Regex over Markdown is brittle; AST tolerates format variations |
@@ -132,7 +132,7 @@ interface Prd {
 | Validation       | `zod`                                | Config and API responses validated at runtime                   |
 | CLI              | `commander`                          | Sufficient without heavy dependencies                           |
 | Tests            | `vitest`                             | Author's standard                                               |
-| Bundling         | `tsup` → ESM + bin                   | Executable via `npx` in Actions                                 |
+| Bundling         | `tsdown` → ESM + bin                 | Executable via `npx` in Actions                                 |
 
 ### 7.2 Mapping to GitHub
 
@@ -372,7 +372,7 @@ Computes the diff between the PRD and GitHub's current state, and applies it ide
 - [ ] `sync` command with `commander` and flags `--dry-run`, `--config`, `--verbose`
 - [ ] Load and validate `prd-sync.config.json` with `zod`
 - [ ] Token and scopes pre-check
-- [ ] Build with `tsup` and `bin` entry
+- [ ] Build with `tsdown` and `bin` entry
 - [ ] Differentiated exit codes (0 no changes, 0 applied, 1 error)
 
 ### E5 — GitHub Action
