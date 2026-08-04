@@ -36,6 +36,7 @@ Last updated: 2026-08-04
 | `skill-creator` | Trigger: new skills, agent instructions, documenting AI usage patterns. Create LLM-first skills with valid frontmatter. | user | `/Users/luciano/.config/opencode/skills/skill-creator/SKILL.md` |
 | `skill-improver` | Trigger: improve skills, audit skills, refactor skills, skill quality. Audit and upgrade existing LLM-first skills. | user | `/Users/luciano/.config/opencode/skills/skill-improver/SKILL.md` |
 | `sync-dry-run` | Builds the CLI and runs it in dry-run mode against the sandbox repository, showing the sync plan. | project | `/Users/luciano/Documents/prd-sync/.claude/skills/sync-dry-run/SKILL.md` |
+| `versioning` | prd-sync's semantic versioning rules and how to write a changeset. Consult this skill ALWAYS when creating a changeset, deciding a version bump, preparing a release, or when a change affects the marker format, the content hash, or the syntax the parser recognizes. On any doubt about whether a change is breaking, this skill governs. | project | `/Users/luciano/Documents/prd-sync/.claude/skills/versioning/SKILL.md` |
 | `work-unit-commits` | Plan commits as reviewable work units. Trigger: implementation, commit splitting, chained PRs, or keeping tests and docs with code. | user | `/Users/luciano/.config/opencode/skills/work-unit-commits/SKILL.md` |
 
 ## Loading protocol
