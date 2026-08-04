@@ -1,0 +1,18 @@
+{
+  "name": "prd-sync",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "prd-sync": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.x",
+  "scripts": {
+    "dev": "node --watch src/cli.ts",
+    "build": "tsdown",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  }
+}
