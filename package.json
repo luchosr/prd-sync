@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@10.x",
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "node --watch src/cli.ts",
     "build": "tsdown",
