@@ -203,6 +203,22 @@ describe("listSyncedIssues", () => {
     expect(issues[0]).toEqual(expectedSyncedIssue(1));
     expect(issues[200]).toEqual(expectedSyncedIssue(201));
   });
+
+  it("excludes pull requests from the results, since GitHub's issues endpoint returns both", async () => {
+    server.use(
+      restGet("/repos/:owner/:repo/issues", () =>
+        HttpResponse.json([
+          fakeRestIssue(1),
+          { ...fakeRestIssue(2), pull_request: { url: "https://api.github.com/repos/luchosr/prd-sync/pulls/2" } },
+        ]),
+      ),
+    );
+    const ctx = createClient({ auth: "token", repo: REPO });
+
+    const issues = await listSyncedIssues(ctx, "synced");
+
+    expect(issues).toEqual([expectedSyncedIssue(1)]);
+  });
 });
 
 describe("isSubIssueFeatureGap", () => {

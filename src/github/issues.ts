@@ -202,6 +202,13 @@ function toSyncedIssue(data: z.infer<typeof githubIssueListItemSchema>): SyncedI
   };
 }
 
+// GitHub's issues endpoint returns pull requests too — they carry a
+// `pull_request` key GitHub adds to every PR-backed issue. Excluded here so
+// a PR that happens to share the sync label is never treated as a Story.
+function isPullRequest(data: z.infer<typeof githubIssueListItemSchema>): boolean {
+  return data.pull_request !== undefined;
+}
+
 // Manual page/per_page loop, each page its own queued unit (design decision
 // #14) — `octokit.paginate` bypasses the owned queue, so throttle and
 // backoff would not apply to pages 2..n. One pass, marker-agnostic.
@@ -224,7 +231,7 @@ export async function listSyncedIssues(ctx: ClientContext, label: string): Promi
       listIssuesResponseSchema,
     );
 
-    results.push(...data.map(toSyncedIssue));
+    results.push(...data.filter((item) => !isPullRequest(item)).map(toSyncedIssue));
 
     if (data.length < PAGE_SIZE) break;
     page += 1;

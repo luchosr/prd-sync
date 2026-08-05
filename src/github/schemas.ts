@@ -10,7 +10,9 @@ export const githubIssueSchema = z.object({
 });
 
 // REST — GET /repos/{owner}/{repo}/issues (listSyncedIssues, PR3). Labels
-// come back as full objects; only the name is kept.
+// come back as full objects; only the name is kept. GitHub's issues
+// endpoint also returns pull requests (they carry a `pull_request` key) —
+// listSyncedIssues filters those out before this shape is consumed.
 export const githubIssueListItemSchema = z.object({
   number: z.number(),
   id: z.number(),
@@ -18,6 +20,7 @@ export const githubIssueListItemSchema = z.object({
   title: z.string(),
   state: z.string(),
   labels: z.array(z.union([z.string(), z.object({ name: z.string().optional() })])),
+  pull_request: z.unknown().optional(),
 });
 
 export const listIssuesResponseSchema = z.array(githubIssueListItemSchema);
