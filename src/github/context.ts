@@ -20,6 +20,23 @@ export interface RestResult<T> {
   readonly headers: Readonly<Record<string, string>>;
 }
 
+export interface ProjectFieldOption {
+  readonly id: string;
+  readonly name: string;
+}
+
+export interface ProjectField {
+  readonly id: string;
+  readonly name: string;
+  readonly dataType: string;
+  readonly options?: readonly ProjectFieldOption[];
+}
+
+// Keyed by field name, lower-cased + trimmed (design decision #12: name and
+// option lookups are case-insensitive). Filled in by projects.ts's
+// `resolveProject`.
+export type ProjectFieldSchema = ReadonlyMap<string, ProjectField>;
+
 // The funnel every GitHub call goes through (design decision #1). Feature
 // modules and auth.ts receive only this — never the raw Octokit/graphql
 // clients — so throttling, backoff, and schema validation cannot be
@@ -27,9 +44,8 @@ export interface RestResult<T> {
 export interface ClientContext {
   readonly repo: RepoRef;
   // Design decision #12: Map<projectId, FieldSchema>, resolved lazily once
-  // by projects.ts (PR3) and never invalidated. PR2 only owns the empty
-  // cache — the FieldSchema shape lands with projects.ts.
-  readonly projectFieldCache: Map<string, unknown>;
+  // by projects.ts and never invalidated.
+  readonly projectFieldCache: Map<string, ProjectFieldSchema>;
   rest<T>(
     operation: string,
     request: (octokit: RestClient) => Promise<RawRestResponse>,
