@@ -18,11 +18,15 @@
   "devDependencies": {
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.1.2",
+    "msw": "^2.15.0",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@octokit/graphql": "^9.0.4",
+    "@octokit/plugin-retry": "^8.1.1",
+    "@octokit/rest": "^22.0.1",
     "mdast-util-to-markdown": "^2.1.2",
     "mdast-util-to-string": "^4.0.0",
     "remark-gfm": "^4.0.1",
