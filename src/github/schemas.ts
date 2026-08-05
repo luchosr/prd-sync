@@ -9,6 +9,19 @@ export const githubIssueSchema = z.object({
   node_id: z.string(),
 });
 
+// REST — GET /repos/{owner}/{repo}/issues (listSyncedIssues, PR3). Labels
+// come back as full objects; only the name is kept.
+export const githubIssueListItemSchema = z.object({
+  number: z.number(),
+  id: z.number(),
+  node_id: z.string(),
+  title: z.string(),
+  state: z.string(),
+  labels: z.array(z.union([z.string(), z.object({ name: z.string().optional() })])),
+});
+
+export const listIssuesResponseSchema = z.array(githubIssueListItemSchema);
+
 // GraphQL — named operations, matching the documents in queries.ts (PR3).
 // Field/option ids stay opaque strings; only the shape used to build the
 // field cache (design decision #12) is validated here.
