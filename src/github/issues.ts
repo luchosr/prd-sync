@@ -22,7 +22,7 @@ export interface SyncedIssue {
   readonly labels: readonly string[];
   // Optional (E3 D1), not required — `undefined` when GitHub omits the
   // field, `null` for a genuinely empty body, a string otherwise. Raw
-  // passthrough only; this module never parses the prd-sync marker.
+  // passthrough only; this module never parses the sync marker's syntax.
   readonly body?: string | null;
 }
 

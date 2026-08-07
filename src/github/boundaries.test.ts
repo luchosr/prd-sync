@@ -74,4 +74,25 @@ describe("module boundary: src/github", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  // E3 D1 added `body` to SyncedIssue; this is the machine-checked form of
+  // "src/github/ stays marker-agnostic" (design §2, §11 L12) — production
+  // code never mentions the prd-sync marker's syntax, so it can never parse
+  // or interpret it. Scoped to non-test files: `*.test.ts` fixtures
+  // legitimately set `repo: "prd-sync"` (this project's actual GitHub repo
+  // name, predating E3), which is unrelated to marker semantics. The full
+  // 4-rule cross-module scanner (including this rule for every module)
+  // lands in src/sync/boundaries.test.ts in a later PR.
+  it("no production file under src/github/** mentions the prd-sync marker namespace", () => {
+    const offenders: string[] = [];
+
+    for (const file of listTsFiles(githubDir)) {
+      if (file.endsWith(".test.ts")) continue;
+      if (readFileSync(file, "utf-8").includes("prd-sync")) {
+        offenders.push(relative(srcDir, file));
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
 });
