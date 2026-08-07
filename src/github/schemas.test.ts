@@ -3,6 +3,7 @@ import { GithubClientError } from "./errors.js";
 import {
   addProjectV2ItemSchema,
   addSubIssueSchema,
+  githubIssueListItemSchema,
   githubIssueSchema,
   parseGithubResponse,
   resolveProjectV2Schema,
@@ -25,6 +26,28 @@ describe("githubIssueSchema", () => {
     const parsed = githubIssueSchema.parse({ number: 7, id: 42, node_id: "I_kwDOchild" });
 
     expect(parsed.id).toBe(42);
+  });
+});
+
+describe("githubIssueListItemSchema", () => {
+  const base = { number: 1, id: 1, node_id: "I_a", title: "Story", state: "open", labels: [] };
+
+  it("parses a string body", () => {
+    const parsed = githubIssueListItemSchema.parse({ ...base, body: "Some description" });
+
+    expect(parsed.body).toBe("Some description");
+  });
+
+  it("parses a null body (issue with an empty body)", () => {
+    const parsed = githubIssueListItemSchema.parse({ ...base, body: null });
+
+    expect(parsed.body).toBeNull();
+  });
+
+  it("parses as undefined when the field is absent from the payload (D1 three-way distinction)", () => {
+    const parsed = githubIssueListItemSchema.parse(base);
+
+    expect(parsed.body).toBeUndefined();
   });
 });
 

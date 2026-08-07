@@ -221,6 +221,29 @@ describe("listSyncedIssues", () => {
   });
 });
 
+describe("listSyncedIssues body passthrough (D1)", () => {
+  it.each([
+    { label: "a string body", body: "Description text", expected: "Description text" },
+    { label: "a null body", body: null, expected: null },
+  ])("carries $label through to SyncedIssue.body unmodified, with no marker interpretation", async ({ body, expected }) => {
+    server.use(restGet("/repos/:owner/:repo/issues", () => HttpResponse.json([{ ...fakeRestIssue(1), body }])));
+    const ctx = createClient({ auth: "token", repo: REPO });
+
+    const issues = await listSyncedIssues(ctx, "synced");
+
+    expect(issues[0]?.body).toBe(expected);
+  });
+
+  it("leaves SyncedIssue.body as undefined when the field is absent from GitHub's response", async () => {
+    server.use(restGet("/repos/:owner/:repo/issues", () => HttpResponse.json([fakeRestIssue(1)])));
+    const ctx = createClient({ auth: "token", repo: REPO });
+
+    const issues = await listSyncedIssues(ctx, "synced");
+
+    expect(issues[0]?.body).toBeUndefined();
+  });
+});
+
 describe("isSubIssueFeatureGap", () => {
   it.each([
     { status: 404, message: undefined, expected: true },
