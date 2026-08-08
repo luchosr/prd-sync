@@ -20,6 +20,10 @@ export interface SyncedIssue {
   readonly title: string;
   readonly state: string;
   readonly labels: readonly string[];
+  // Optional (E3 D1), not required — `undefined` when GitHub omits the
+  // field, `null` for a genuinely empty body, a string otherwise. Raw
+  // passthrough only; this module never parses the sync marker's syntax.
+  readonly body?: string | null;
 }
 
 export interface CreateIssueInput {
@@ -199,6 +203,7 @@ function toSyncedIssue(data: z.infer<typeof githubIssueListItemSchema>): SyncedI
     title: data.title,
     state: data.state,
     labels: data.labels.map(labelName),
+    body: data.body,
   };
 }
 

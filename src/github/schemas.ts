@@ -21,6 +21,12 @@ export const githubIssueListItemSchema = z.object({
   state: z.string(),
   labels: z.array(z.union([z.string(), z.object({ name: z.string().optional() })])),
   pull_request: z.unknown().optional(),
+  // Optional, not `.nullable()` alone (E3 D1) — GitHub returns a string body,
+  // `null` for a genuinely empty body, or omits the field entirely if the
+  // list endpoint ever regresses. Keeping all three distinguishable is what
+  // lets src/sync/'s fail-closed guard detect that regression. `src/github/`
+  // stays marker-agnostic: it carries the raw string and never parses it.
+  body: z.string().nullable().optional(),
 });
 
 export const listIssuesResponseSchema = z.array(githubIssueListItemSchema);
