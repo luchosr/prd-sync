@@ -1,0 +1,63 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderMarkdown > renders a plan + applied report — including failures and skips 1`] = `
+"## prd-sync plan
+
+| Operation | Count |
+| --- | --- |
+| create | 2 |
+| update | 1 |
+| orphan | 1 |
+| noop | 1 |
+| **Total** | 5 |
+
+### Epics
+- \`E1\` **create** E1 — Parser
+
+### Stories
+- \`US-01\` **create** US-01: As a developer, I want a parser
+- \`US-02\` **update** US-02: As a tech lead, I want a plan
+
+### Orphans
+- \`US-09\` #42 US-09: As a developer, I want a dropped story
+
+### Warnings
+- #7 carries the sync label but no parsable sync marker — left untouched
+- duplicate marker key US-03 on #55 — keeping #12, #55 left untouched
+
+## Applied
+
+1 created, 1 updated, 1 orphaned
+
+### Failures
+- \`US-04\` link-sub-issue — status 422: validation failed
+
+### Skipped
+- \`US-05\` link-sub-issue — parent-create-failed"
+`;
+
+exports[`renderMarkdown > renders a plan-only report — heading, counts table, every operation kind, both warning kinds 1`] = `
+"## prd-sync plan
+
+| Operation | Count |
+| --- | --- |
+| create | 2 |
+| update | 1 |
+| orphan | 1 |
+| noop | 1 |
+| **Total** | 5 |
+
+### Epics
+- \`E1\` **create** E1 — Parser
+
+### Stories
+- \`US-01\` **create** US-01: As a developer, I want a parser
+- \`US-02\` **update** US-02: As a tech lead, I want a plan
+
+### Orphans
+- \`US-09\` #42 US-09: As a developer, I want a dropped story
+
+### Warnings
+- #7 carries the sync label but no parsable sync marker — left untouched
+- duplicate marker key US-03 on #55 — keeping #12, #55 left untouched"
+`;

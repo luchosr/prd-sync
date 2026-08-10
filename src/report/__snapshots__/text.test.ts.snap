@@ -1,0 +1,43 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderText > renders a plan + applied report — including failures and skips 1`] = `
+"Plan: 2 create, 1 update, 1 orphan, 1 noop (5 total)
+
+Epics
+  create  E1      E1 — Parser
+
+Stories
+  create  US-01   US-01: As a developer, I want a parser
+  update  US-02   US-02: As a tech lead, I want a plan
+
+Orphans
+  orphan  US-09   #42  US-09: As a developer, I want a dropped story
+
+Warnings
+  ! #7 carries the sync label but no parsable sync marker — left untouched
+  ! duplicate marker key US-03 on #55 — keeping #12, #55 left untouched
+
+Applied: 1 created, 1 updated, 1 orphaned
+Failures
+  ✗ US-04  link-sub-issue  status 422: validation failed
+Skipped
+  - US-05  link-sub-issue  parent-create-failed"
+`;
+
+exports[`renderText > renders a plan-only report (dry-run shape) — every operation kind, both warning kinds 1`] = `
+"Plan: 2 create, 1 update, 1 orphan, 1 noop (5 total)
+
+Epics
+  create  E1      E1 — Parser
+
+Stories
+  create  US-01   US-01: As a developer, I want a parser
+  update  US-02   US-02: As a tech lead, I want a plan
+
+Orphans
+  orphan  US-09   #42  US-09: As a developer, I want a dropped story
+
+Warnings
+  ! #7 carries the sync label but no parsable sync marker — left untouched
+  ! duplicate marker key US-03 on #55 — keeping #12, #55 left untouched"
+`;
