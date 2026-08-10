@@ -1,8 +1,7 @@
-// Shared vocabulary for src/sync/. Grows in later PRs (ApplyResult,
-// SyncOptions…) — this PR adds Plan/PlanOperation/IssueIndex on top of PR1's
-// DesiredIssue.
-import type { SyncedIssue } from "../github/index.js";
-import type { Priority } from "../domain/types.js";
+// Shared vocabulary for src/sync/. This PR adds ApplyResult/ApplyOptions and
+// SyncOptions/SyncResult (design §8, §10) on top of PR2's Plan/PlanOperation.
+import type { ClientContext, GithubIssueCode, GithubWarning, SyncedIssue } from "../github/index.js";
+import type { Prd, Priority } from "../domain/types.js";
 import type { Marker } from "./marker.js";
 
 export type DesiredKind = "epic" | "story";
@@ -109,4 +108,65 @@ export interface IssueIndex {
   readonly byKey: ReadonlyMap<string, IndexedIssue>;
   readonly unmanaged: readonly SyncedIssue[]; // sync label present, no parsable marker
   readonly duplicates: readonly SyncedIssue[]; // same marker key, lost the lowest-number tie-break
+}
+
+// ---------------------------------------------------------------------------
+// Apply (design §8) — apply() is the only impure module. No `dryRun` here:
+// dry-run is structural in sync.ts, which simply never calls apply().
+// ---------------------------------------------------------------------------
+
+export type ApplyStep = "resolve-project" | "create" | "update" | "orphan" | "link-sub-issue" | "project-item" | "project-field";
+
+export interface AppliedItem {
+  readonly key: string;
+  readonly itemKind: ItemKind;
+  readonly number: number;
+  readonly title: string;
+}
+
+export interface SkippedStep {
+  readonly key: string;
+  readonly step: ApplyStep;
+  readonly reason: "parent-create-failed" | "parent-not-found" | "project-unavailable";
+}
+
+export interface ApplyFailure {
+  readonly key: string;
+  readonly itemKind: ItemKind;
+  readonly step: ApplyStep;
+  readonly message: string;
+  readonly status?: number;
+  readonly code?: GithubIssueCode;
+}
+
+export interface ApplyResult {
+  readonly created: readonly AppliedItem[];
+  readonly updated: readonly AppliedItem[];
+  readonly orphaned: readonly AppliedItem[];
+  readonly skipped: readonly SkippedStep[];
+  readonly failures: readonly ApplyFailure[];
+  readonly warnings: readonly GithubWarning[];
+  readonly ok: boolean; // failures.length === 0
+}
+
+export interface ApplyOptions {
+  readonly syncLabel: string;
+  readonly project?: { readonly owner: string; readonly number: number };
+}
+
+// ---------------------------------------------------------------------------
+// sync() entrypoint (design §10, D9)
+// ---------------------------------------------------------------------------
+
+export interface SyncOptions {
+  readonly prds: readonly Prd[];
+  readonly ctx: ClientContext;
+  readonly syncLabel?: string; // default DEFAULT_SYNC_LABEL
+  readonly project?: { readonly owner: string; readonly number: number };
+  readonly dryRun?: boolean; // default false
+}
+
+export interface SyncResult {
+  readonly plan: Plan;
+  readonly applied?: ApplyResult; // absent iff dryRun
 }
