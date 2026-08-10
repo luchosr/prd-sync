@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.1",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.1.2",
     "msw": "^2.15.0",
