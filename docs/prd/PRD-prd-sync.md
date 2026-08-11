@@ -190,7 +190,7 @@ File `prd-sync.config.json` at the repository root, validated with `zod`:
   "repo": "luchosr/nomadhome",
   "projectNumber": 3,
   "sources": ["docs/prd/**/*.md"],
-  "labels": ["prd-sync"],
+  "syncLabel": "prd-sync",
   "fieldMapping": {
     "priority": "Priority",
     "estimate": "Estimate"
@@ -363,7 +363,7 @@ Computes the diff between the PRD and GitHub's current state, and applies it ide
 
 ##### Acceptance criteria
 
-- Given `npx prd-sync --dry-run`, when run in a repo with valid config, the plan is printed.
+- Given `prd-sync sync --dry-run`, when run in a repo with valid config, the plan is printed.
 - Given invalid config, when starting, the `zod` error points to the concrete field.
 - Given a missing token, when starting, the message indicates which scope is required.
 
