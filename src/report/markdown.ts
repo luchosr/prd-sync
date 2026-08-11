@@ -10,8 +10,14 @@ function opBullet(op: Extract<PlanOperation, { kind: "create" | "update" }>): st
   return `- \`${op.key}\` **${op.kind}** ${op.title}`;
 }
 
-function ofItemKind(operations: readonly PlanOperation[], itemKind: ItemKind): readonly PlanOperation[] {
-  return operations.filter((op) => (op.kind === "create" || op.kind === "update") && op.itemKind === itemKind);
+function ofItemKind(
+  operations: readonly PlanOperation[],
+  itemKind: ItemKind,
+): readonly Extract<PlanOperation, { kind: "create" | "update" }>[] {
+  return operations.filter(
+    (op): op is Extract<PlanOperation, { kind: "create" | "update" }> =>
+      (op.kind === "create" || op.kind === "update") && op.itemKind === itemKind,
+  );
 }
 
 function orphans(operations: readonly PlanOperation[]): readonly Extract<PlanOperation, { kind: "orphan" }>[] {
@@ -34,16 +40,12 @@ export function renderMarkdown(plan: Plan, applied?: ApplyResult): string {
 
   const epics = ofItemKind(plan.operations, "epic");
   if (epics.length > 0) {
-    lines.push("", "### Epics", ...epics.map((op) => opBullet(op as Extract<PlanOperation, { kind: "create" | "update" }>)));
+    lines.push("", "### Epics", ...epics.map(opBullet));
   }
 
   const stories = ofItemKind(plan.operations, "story");
   if (stories.length > 0) {
-    lines.push(
-      "",
-      "### Stories",
-      ...stories.map((op) => opBullet(op as Extract<PlanOperation, { kind: "create" | "update" }>)),
-    );
+    lines.push("", "### Stories", ...stories.map(opBullet));
   }
 
   const orphanOps = orphans(plan.operations);

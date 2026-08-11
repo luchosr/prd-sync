@@ -11,8 +11,14 @@ function opLine(op: Extract<PlanOperation, { kind: "create" | "update" | "orphan
   return `  ${op.kind.padEnd(8)}${op.key.padEnd(8)}${op.title}`;
 }
 
-function ofItemKind(operations: readonly PlanOperation[], itemKind: ItemKind): readonly PlanOperation[] {
-  return operations.filter((op) => (op.kind === "create" || op.kind === "update") && op.itemKind === itemKind);
+function ofItemKind(
+  operations: readonly PlanOperation[],
+  itemKind: ItemKind,
+): readonly Extract<PlanOperation, { kind: "create" | "update" }>[] {
+  return operations.filter(
+    (op): op is Extract<PlanOperation, { kind: "create" | "update" }> =>
+      (op.kind === "create" || op.kind === "update") && op.itemKind === itemKind,
+  );
 }
 
 function orphans(operations: readonly PlanOperation[]): readonly Extract<PlanOperation, { kind: "orphan" }>[] {
@@ -27,12 +33,12 @@ export function renderText(plan: Plan, applied?: ApplyResult): string {
 
   const epics = ofItemKind(plan.operations, "epic");
   if (epics.length > 0) {
-    lines.push("", "Epics", ...epics.map((op) => opLine(op as Extract<PlanOperation, { kind: "create" | "update" }>)));
+    lines.push("", "Epics", ...epics.map(opLine));
   }
 
   const stories = ofItemKind(plan.operations, "story");
   if (stories.length > 0) {
-    lines.push("", "Stories", ...stories.map((op) => opLine(op as Extract<PlanOperation, { kind: "create" | "update" }>)));
+    lines.push("", "Stories", ...stories.map(opLine));
   }
 
   const orphanOps = orphans(plan.operations);
