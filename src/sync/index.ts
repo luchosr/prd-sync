@@ -19,6 +19,7 @@ export type {
   DesiredIssue,
   DesiredKind,
   DesiredTask,
+  FieldMapping,
   ItemKind,
   IssueTarget,
   OperationKind,

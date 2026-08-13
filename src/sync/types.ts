@@ -149,9 +149,17 @@ export interface ApplyResult {
   readonly ok: boolean; // failures.length === 0
 }
 
+// E4 additive: per-field override of the Projects v2 field names apply()
+// writes to (design §7). Unmapped fields keep the PROJECT_FIELDS defaults.
+export interface FieldMapping {
+  readonly priority?: string;
+  readonly estimate?: string;
+}
+
 export interface ApplyOptions {
   readonly syncLabel: string;
   readonly project?: { readonly owner: string; readonly number: number };
+  readonly fieldMapping?: FieldMapping;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +172,7 @@ export interface SyncOptions {
   readonly syncLabel?: string; // default DEFAULT_SYNC_LABEL
   readonly project?: { readonly owner: string; readonly number: number };
   readonly dryRun?: boolean; // default false
+  readonly fieldMapping?: FieldMapping;
 }
 
 export interface SyncResult {
