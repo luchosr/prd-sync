@@ -14,6 +14,6 @@ export async function sync(options: SyncOptions): Promise<SyncResult> {
 
   if (options.dryRun === true) return { plan };
 
-  const applied = await apply(plan, options.ctx, { syncLabel, project: options.project });
+  const applied = await apply(plan, options.ctx, { syncLabel, project: options.project, fieldMapping: options.fieldMapping });
   return { plan, applied };
 }

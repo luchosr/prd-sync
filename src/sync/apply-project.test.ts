@@ -45,3 +45,35 @@ describe("projectFieldWrites", () => {
     ]);
   });
 });
+
+describe("projectFieldWrites — configurable field names (E4 additive)", () => {
+  it("uses the mapped field name for priority when mapping.priority is set", () => {
+    const writes = projectFieldWrites(desired({ priority: "P0" }), { priority: "Prioridad" });
+
+    expect(writes).toEqual([{ field: "Prioridad", value: { kind: "singleSelect", option: "P0" } }]);
+  });
+
+  it("uses the mapped field name for estimate when mapping.estimate is set", () => {
+    const writes = projectFieldWrites(desired({ estimate: 3 }), { estimate: "Puntos" });
+
+    expect(writes).toEqual([{ field: "Puntos", value: { kind: "number", value: 3 } }]);
+  });
+
+  it("falls back to the default field name for a field absent from a partial mapping", () => {
+    const writes = projectFieldWrites(desired({ priority: "P1", estimate: 5 }), { priority: "Prioridad" });
+
+    expect(writes).toEqual([
+      { field: "Prioridad", value: { kind: "singleSelect", option: "P1" } },
+      { field: PROJECT_FIELDS.estimate, value: { kind: "number", value: 5 } },
+    ]);
+  });
+
+  it("treats an empty mapping object the same as no mapping at all", () => {
+    const writes = projectFieldWrites(desired({ priority: "P2", estimate: 8 }), {});
+
+    expect(writes).toEqual([
+      { field: PROJECT_FIELDS.priority, value: { kind: "singleSelect", option: "P2" } },
+      { field: PROJECT_FIELDS.estimate, value: { kind: "number", value: 8 } },
+    ]);
+  });
+});

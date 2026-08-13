@@ -76,7 +76,7 @@ export async function apply(plan: Plan, ctx: ClientContext, options: ApplyOption
       if (projectRequested) skipped.push({ key: op.key, step: "project-item", reason: "project-unavailable" });
       return;
     }
-    const result = await runProjectStep(ctx, project, toIssueRef(ref), op.key, op.itemKind, op.desired);
+    const result = await runProjectStep(ctx, project, toIssueRef(ref), op.key, op.itemKind, op.desired, options.fieldMapping);
     warnings.push(...result.warnings);
     if (result.failure !== undefined) failures.push(result.failure);
   }

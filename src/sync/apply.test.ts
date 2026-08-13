@@ -246,4 +246,52 @@ describe("apply — project step (D8: stories only, epics excluded)", () => {
     expect(result.skipped).toEqual([{ key: "US-01", step: "project-item", reason: "project-unavailable" }]);
     expect(result.created.map((item) => item.key)).toEqual(["US-01"]); // the issue itself is still created
   });
+
+  it("writes to a mapped field name when fieldMapping is passed to apply() (E4 additive threading)", async () => {
+    const setFieldCalls: { fieldId: unknown }[] = [];
+    fake.server.use(
+      graphqlOperation("query", "ResolveProjectV2", () =>
+        HttpResponse.json({
+          data: {
+            repositoryOwner: {
+              projectV2: {
+                id: "PROJECT_1",
+                fields: {
+                  nodes: [
+                    { id: "FIELD_PRIORIDAD", name: "Prioridad", dataType: "SINGLE_SELECT", options: [{ id: "OPT_P1", name: "P1" }] },
+                    { id: "FIELD_ESTIMATE", name: "Estimate", dataType: "NUMBER" },
+                  ],
+                },
+              },
+            },
+          },
+        }),
+      ),
+      graphqlOperation("mutation", "AddProjectV2Item", () => HttpResponse.json({ data: { addProjectV2ItemById: { item: { id: "ITEM_1" } } } })),
+      graphqlOperation("mutation", "SetProjectV2FieldValue", ({ variables }) => {
+        setFieldCalls.push(variables as { fieldId: unknown });
+        return HttpResponse.json({ data: { updateProjectV2ItemFieldValue: { projectV2Item: { id: "ITEM_1" } } } });
+      }),
+    );
+    const story = createOp({
+      kind: "create",
+      itemKind: "story",
+      key: "US-01",
+      parentKey: null,
+      desired: desired({ key: "US-01", priority: "P1", estimate: 5 }),
+    });
+
+    const result = await apply(plan([story]), ctx(), {
+      syncLabel: SYNC_LABEL,
+      project: { owner: "acme", number: 3 },
+      fieldMapping: { priority: "Prioridad" },
+    });
+
+    // No unknown-project-field warning: the mapped "Prioridad" name resolved
+    // against the schema, proving fieldMapping actually reached
+    // projectFieldWrites through apply() -> runProjectStep. The unmapped
+    // estimate still resolves against the default "Estimate" field.
+    expect(result.warnings).toEqual([]);
+    expect(setFieldCalls.map((call) => call.fieldId)).toEqual(["FIELD_PRIORIDAD", "FIELD_ESTIMATE"]);
+  });
 });
