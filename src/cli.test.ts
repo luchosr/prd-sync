@@ -6,7 +6,40 @@
 // mirroring the config.ts split precedent (PR1).
 import { describe, expect, it } from "vitest";
 import { main } from "./cli.js";
-import { fakeApplied, fakeDeps, fakeIo, fakePlan, fakeSyncResult } from "./cli-test-support.js";
+import { fakeApplied, fakeConfig, fakeDeps, fakeIo, fakePlan, fakeSyncResult } from "./cli-test-support.js";
+
+describe("main — --config <path> flag (spec: cli-invocation, Custom config path)", () => {
+  it("passes the --config value straight through to deps.loadConfig", async () => {
+    const io = fakeIo();
+    const seenPaths: string[] = [];
+    const deps = fakeDeps({
+      loadConfig: (path: string) => {
+        seenPaths.push(path);
+        return Promise.resolve(fakeConfig());
+      },
+    });
+
+    const exitCode = await main(["node", "prd-sync", "sync", "--config", "custom/path.json", "--dry-run"], io, deps);
+
+    expect(seenPaths).toEqual(["custom/path.json"]);
+    expect(exitCode).toBe(0);
+  });
+
+  it("defaults to prd-sync.config.json when --config is omitted", async () => {
+    const io = fakeIo();
+    const seenPaths: string[] = [];
+    const deps = fakeDeps({
+      loadConfig: (path: string) => {
+        seenPaths.push(path);
+        return Promise.resolve(fakeConfig());
+      },
+    });
+
+    await main(["node", "prd-sync", "sync", "--dry-run"], io, deps);
+
+    expect(seenPaths).toEqual(["prd-sync.config.json"]);
+  });
+});
 
 describe("main — argv equivalence (ADR-1)", () => {
   it("bare `prd-sync --dry-run` behaves identically to `prd-sync sync --dry-run`", async () => {
