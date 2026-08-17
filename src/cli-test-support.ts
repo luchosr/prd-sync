@@ -84,6 +84,7 @@ export function fakeDeps(overrides: Partial<CliDeps> = {}): CliDeps {
     assertAuth: () => Promise.resolve(),
     sync: () => Promise.resolve(fakeSyncResult()),
     renderText: () => "rendered plan",
+    renderMarkdown: () => "rendered plan",
     ...overrides,
   };
 }

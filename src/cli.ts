@@ -3,13 +3,13 @@
 // only — zero domain logic (module boundary rule, root CLAUDE.md), and it
 // never re-words an error produced by a lower module (design §5 invariant).
 import { fileURLToPath } from "node:url";
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, Option } from "commander";
 import pkg from "../package.json" with { type: "json" };
 import { loadConfig, resolveToken, ConfigError, type Config } from "./config.js";
 import { renderAppliedDetail, renderConfigEcho, renderParsedSummary, renderPlanDetail, renderWarningsCounter } from "./cli-verbose.js";
 import { GithubClientError, assertAuth, createClient } from "./github/index.js";
 import { PrdParseError, parsePrd } from "./parser/index.js";
-import { renderText } from "./report/index.js";
+import { renderMarkdown, renderText } from "./report/index.js";
 import { sync } from "./sync/index.js";
 
 export interface CliIo {
@@ -25,14 +25,16 @@ export interface CliDeps {
   readonly assertAuth: typeof assertAuth;
   readonly sync: typeof sync;
   readonly renderText: typeof renderText;
+  readonly renderMarkdown: typeof renderMarkdown;
 }
 
-const defaultDeps: CliDeps = { loadConfig, parsePrd, createClient, assertAuth, sync, renderText };
+const defaultDeps: CliDeps = { loadConfig, parsePrd, createClient, assertAuth, sync, renderText, renderMarkdown };
 
 interface SyncFlags {
   readonly dryRun: boolean;
   readonly config: string;
   readonly verbose: boolean;
+  readonly format: "text" | "markdown";
 }
 
 function errorMessage(error: unknown): string {
@@ -79,7 +81,8 @@ async function runSync(flags: SyncFlags, io: CliIo, deps: CliDeps): Promise<numb
       io.stderr(renderWarningsCounter(result.applied));
     }
 
-    io.stdout(`${deps.renderText(result.plan, result.applied)}\n`);
+    const render = flags.format === "markdown" ? deps.renderMarkdown : deps.renderText;
+    io.stdout(`${render(result.plan, result.applied)}\n`);
 
     if (result.applied === undefined) return 0;
     return result.applied.ok ? 0 : 1;
@@ -110,6 +113,7 @@ function buildProgram(io: CliIo, deps: CliDeps, exitCodeRef: { value: number }):
     .option("--dry-run", "Print the plan without writing anything", false)
     .option("--config <path>", "Config file", "prd-sync.config.json")
     .option("--verbose", "Show resolved config, per-operation detail, and all warnings", false)
+    .addOption(new Option("--format <format>", "Report format written to stdout").choices(["text", "markdown"]).default("text"))
     .action(async (flags: SyncFlags) => {
       exitCodeRef.value = await runSync(flags, io, deps);
     });
