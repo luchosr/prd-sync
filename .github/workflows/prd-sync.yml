@@ -1,10 +1,226 @@
 name: prd-sync
 
 on:
+  pull_request:
+    paths: ['docs/prd/**']
+  push:
+    branches: [main]
+    paths: ['docs/prd/**']
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Plan only — write nothing
+        type: boolean
+        default: false
+
+permissions: {} # deny-all baseline; every job re-grants explicitly
 
 jobs:
-  sync:
+  # Comments on a PR that touches docs/prd/**. Never writes to GitHub.
+  plan:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: prd-sync-plan-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      # secrets.* is unavailable in `if:`, so bridge it through env first.
+      HAS_TOKEN: ${{ secrets.PRD_SYNC_TOKEN != '' }}
+      IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+      MARKER: '<!-- prd-sync:plan-comment -->'
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Default ref (the merge commit): the plan must describe the
+          # post-merge board, not the pre-merge PR branch.
+
+      - name: Setup pnpm
+        if: env.HAS_TOKEN == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        if: env.HAS_TOKEN == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.HAS_TOKEN == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        if: env.HAS_TOKEN == 'true'
+        run: pnpm build
+
+      - name: Plan
+        id: plan
+        if: env.HAS_TOKEN == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PRD_SYNC_TOKEN }}
+        run: |
+          set -uo pipefail
+          code=0
+          node dist/cli.js sync --dry-run --format markdown >plan.md 2>plan.err || code=$?
+          echo "exit_code=$code" >>"$GITHUB_OUTPUT"
+          cat plan.md plan.err
+
+      - name: Compose comment body
+        if: always()
+        run: |
+          set -uo pipefail
+          printf '%s\n\n' "$MARKER" >comment.md
+          if [ "$HAS_TOKEN" = 'true' ] && [ -s plan.md ]; then
+            cat plan.md >>comment.md
+            printf '\n<sub>Commit %s · [workflow run](%s)</sub>\n' \
+              "${{ github.event.pull_request.head.sha }}" \
+              "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              >>comment.md
+          elif [ "$HAS_TOKEN" = 'true' ]; then
+            {
+              echo '### prd-sync could not produce a plan'
+              echo
+              echo '```'
+              cat plan.err
+              echo '```'
+              echo
+              echo "Exit code: ${{ steps.plan.outputs.exit_code }}"
+            } >>comment.md
+          else
+            # shellcheck disable=SC2016 # backticks are literal markdown code formatting, not command substitution
+            echo 'Automatic preview does not run without `PRD_SYNC_TOKEN` configured (e.g. on a fork PR). See the README for setup.' >>comment.md
+          fi
+
+      # Only the built-in token, scoped by `permissions:` above — never PRD_SYNC_TOKEN.
+      - name: Upsert plan comment
+        if: always() && env.HAS_TOKEN == 'true' && env.IS_FORK != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # --paginate applies --jq PER PAGE. A `map(...) | .[0]` filter would
+          # therefore emit one id per page on a long thread and corrupt the
+          # PATCH URL below. Stream ids and take the first, deterministically.
+          comment_id=$(gh api --paginate "repos/${REPO}/issues/${PR}/comments" \
+            --jq ".[] | select(.body | startswith(\"${MARKER}\")) | .id" | head -n 1)
+
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${comment_id}" -F body=@comment.md
+          else
+            gh api --method POST "repos/${REPO}/issues/${PR}/comments" -F body=@comment.md
+          fi
+
+      # A fork PR's built-in token is read-only regardless of `permissions:`
+      # above, and a missing/unavailable token means there is nothing to
+      # sync — in both cases the comment step above is skipped, so the same
+      # explanation lands in the step summary instead.
+      - name: Fork / no-token summary
+        if: always() && (env.HAS_TOKEN != 'true' || env.IS_FORK == 'true')
+        run: cat comment.md >>"$GITHUB_STEP_SUMMARY"
+
+  # Applies the diff on push to main, or previews it via workflow_dispatch.
+  apply:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      # Ref-independent: the serialized resource is the board, not the ref.
+      group: prd-sync-apply-main
+      cancel-in-progress: false
+    env:
+      HAS_TOKEN: ${{ secrets.PRD_SYNC_TOKEN != '' }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - name: Checkout
+        if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: env.HAS_TOKEN == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        if: env.HAS_TOKEN == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.HAS_TOKEN == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        if: env.HAS_TOKEN == 'true'
+        run: pnpm build
+
+      - name: Sync
+        id: sync
+        if: env.HAS_TOKEN == 'true'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.PRD_SYNC_TOKEN }}
+        run: |
+          set -uo pipefail
+          args=(sync --format markdown)
+          # "$DRY_RUN" is the string "false" on a plain push, which is
+          # non-empty — ${DRY_RUN:+--dry-run} would dry-run every real apply.
+          [ "$DRY_RUN" = 'true' ] && args+=(--dry-run)
+          code=0
+          node dist/cli.js "${args[@]}" >report.md 2>report.err || code=$?
+          echo "exit_code=$code" >>"$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Write summary
+        if: always()
+        run: |
+          set -uo pipefail
+          if [ "$HAS_TOKEN" != 'true' ]; then
+            {
+              echo '## prd-sync'
+              echo
+              # shellcheck disable=SC2016 # backticks are literal markdown code formatting, not command substitution
+              echo '`PRD_SYNC_TOKEN` is not configured — nothing was applied.'
+            } >>"$GITHUB_STEP_SUMMARY"
+          else
+            mode=apply
+            [ "$DRY_RUN" = 'true' ] && mode='dry run'
+            {
+              echo "## prd-sync (${mode})"
+              echo
+              if [ -s report.md ]; then
+                cat report.md
+              else
+                echo '_No report produced._'
+              fi
+              if [ -s report.err ]; then
+                echo
+                echo '<details><summary>stderr</summary>'
+                echo
+                echo '```'
+                cat report.err
+                echo '```'
+                echo
+                echo '</details>'
+              fi
+            } >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      # continue-on-error makes `conclusion` report "success" even when the
+      # sync failed — only `outcome` reflects the real result.
+      - name: Fail if the sync failed
+        if: steps.sync.outcome == 'failure'
+        run: |
+          echo "prd-sync exited ${{ steps.sync.outputs.exit_code }}" >&2
+          exit 1
