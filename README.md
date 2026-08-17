@@ -75,6 +75,10 @@ to the repository as a secret named `PRD_SYNC_TOKEN`.
 > The default `GITHUB_TOKEN` in Actions **cannot write to Projects v2**. This
 > step is not optional. A GitHub App with organisation permission
 > `Projects: write` works too.
+>
+> The shipped workflow (below) also uses the default `GITHUB_TOKEN` — but
+> only to post/update its PR comment, never to sync. `PRD_SYNC_TOKEN` is the
+> only credential with write access to issues and the Project.
 
 ### 3. Configure
 
@@ -108,40 +112,35 @@ sync.
 
 ### 5. Automate
 
-`.github/workflows/prd-sync.yml`:
+The shipped workflow, [`.github/workflows/prd-sync.yml`](.github/workflows/prd-sync.yml),
+has two jobs:
 
-```yaml
-name: prd-sync
+- **`plan`** runs on every pull request that touches `docs/prd/**`. It does a
+  `--dry-run --format markdown` sync and posts (or updates) a single PR
+  comment with the plan, so reviewers see the exact board changes before
+  merge.
+- **`apply`** runs on every push to `main` that touches `docs/prd/**`, and can
+  also be triggered manually (`workflow_dispatch`, with a `dry_run` input)
+  for a preview that writes nothing. It performs the real sync and writes the
+  report to the run's step summary.
 
-on:
-  pull_request:
-    paths: ['docs/prd/**']
-  push:
-    branches: [main]
-    paths: ['docs/prd/**']
+Both jobs need `PRD_SYNC_TOKEN` (step 2) to do anything — without it, `plan`
+posts an explanatory comment (or, on a fork PR, writes to the step summary
+instead, see below) and `apply` writes a "not configured" summary. Neither
+job fails when the secret is missing; this keeps a freshly cloned repo from
+showing a red X on every PRD change before it's configured.
 
-concurrency:
-  group: prd-sync-${{ github.ref }}
+**Permissions.** `plan` needs `pull-requests: write` to post its comment —
+using the default `GITHUB_TOKEN`, never `PRD_SYNC_TOKEN`. `apply` needs only
+`contents: read`; it posts no comment, and every write to issues or the
+Project travels on `PRD_SYNC_TOKEN`, whose authority comes from its own PAT
+scopes, not from the workflow's `permissions:` block.
 
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile && pnpm build
-      - run: node dist/cli.js sync ${{ github.event_name == 'pull_request' && '--dry-run' || '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.PRD_SYNC_TOKEN }}
-```
+**Fork PRs.** GitHub gives the built-in `GITHUB_TOKEN` **read-only** access
+on any pull request opened from a fork, regardless of the `permissions:`
+block — so `plan` cannot post or update a PR comment there. On a fork PR (or
+any run where `PRD_SYNC_TOKEN` isn't available), the explanation goes to the
+run's `$GITHUB_STEP_SUMMARY` instead of a PR comment.
 
 ## PRD format
 
@@ -172,9 +171,10 @@ Unrecognised sections are ignored without error.
 ```
 prd-sync sync [options]
 
-  --dry-run          Print the plan without writing anything
-  --config <path>    Config file (default: prd-sync.config.json)
-  --verbose          Show resolved config, per-operation detail, and all warnings
+  --dry-run              Print the plan without writing anything
+  --config <path>        Config file (default: prd-sync.config.json)
+  --verbose              Show resolved config, per-operation detail, and all warnings
+  --format <text|markdown>  Report format written to stdout (default: text)
 ```
 
 Exit codes: `0` success (with or without changes), `1` error.
