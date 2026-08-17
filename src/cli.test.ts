@@ -4,7 +4,7 @@
 // cli-errors.test.ts; --verbose output lives in cli-verbose.test.ts; the
 // real build/hashbang check lives in cli-build.test.ts — split for size,
 // mirroring the config.ts split precedent (PR1).
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { main } from "./cli.js";
 import { fakeApplied, fakeConfig, fakeDeps, fakeIo, fakePlan, fakeSyncResult } from "./cli-test-support.js";
 
@@ -38,6 +38,42 @@ describe("main — --config <path> flag (spec: cli-invocation, Custom config pat
     await main(["node", "prd-sync", "sync", "--dry-run"], io, deps);
 
     expect(seenPaths).toEqual(["prd-sync.config.json"]);
+  });
+});
+
+describe("main — --format flag (spec: cli-invocation, format scenarios)", () => {
+  it("defaults to text output when --format is omitted (regression: byte-identical to pre-E5)", async () => {
+    const io = fakeIo();
+    const renderMarkdown = vi.fn(() => "MARKDOWN OUTPUT");
+    const deps = fakeDeps({ renderText: () => "TEXT OUTPUT", renderMarkdown });
+
+    const exitCode = await main(["node", "prd-sync", "sync", "--dry-run"], io, deps);
+
+    expect(exitCode).toBe(0);
+    expect(io.stdoutLines.join("")).toBe("TEXT OUTPUT\n");
+    expect(renderMarkdown).not.toHaveBeenCalled();
+  });
+
+  it("--format markdown routes the report through deps.renderMarkdown instead of deps.renderText", async () => {
+    const io = fakeIo();
+    const renderText = vi.fn(() => "TEXT OUTPUT");
+    const deps = fakeDeps({ renderText, renderMarkdown: () => "MARKDOWN OUTPUT" });
+
+    const exitCode = await main(["node", "prd-sync", "sync", "--dry-run", "--format", "markdown"], io, deps);
+
+    expect(exitCode).toBe(0);
+    expect(io.stdoutLines.join("")).toBe("MARKDOWN OUTPUT\n");
+    expect(renderText).not.toHaveBeenCalled();
+  });
+
+  it("an invalid --format value is rejected by commander's own choices validation, exit 1, usage on stderr", async () => {
+    const io = fakeIo();
+    const deps = fakeDeps();
+
+    const exitCode = await main(["node", "prd-sync", "sync", "--dry-run", "--format", "json"], io, deps);
+
+    expect(exitCode).toBe(1);
+    expect(io.stderrLines.join("")).toContain("Allowed choices are text, markdown.");
   });
 });
 
