@@ -1,1 +1,4 @@
-{}
+{
+  "repo": "luchosr/prd-sync",
+  "sources": ["docs/prd/**/*.md"]
+}

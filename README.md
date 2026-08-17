@@ -85,7 +85,7 @@ to the repository as a secret named `PRD_SYNC_TOKEN`.
   "repo": "owner/repo",
   "projectNumber": 3,
   "sources": ["docs/prd/**/*.md"],
-  "labels": ["prd-sync"],
+  "syncLabel": "prd-sync",
   "fieldMapping": {
     "priority": "Priority",
     "estimate": "Estimate"
@@ -174,7 +174,7 @@ prd-sync sync [options]
 
   --dry-run          Print the plan without writing anything
   --config <path>    Config file (default: prd-sync.config.json)
-  --verbose          Show every API call
+  --verbose          Show resolved config, per-operation detail, and all warnings
 ```
 
 Exit codes: `0` success (with or without changes), `1` error.
