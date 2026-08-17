@@ -450,3 +450,5 @@ Computes the diff between the PRD and GitHub's current state, and applies it ide
 | 2     | E2 (US-04) + E3 | Idempotent sync with plan and populated board                |
 | 3     | E4 + E5         | CI automation with PR review                                 |
 | 4     | E6              | Publishable and usable by third parties                      |
+
+<!-- e5 workflow verification: safe to delete, scratch PR only -->
