@@ -125,10 +125,10 @@ has two jobs:
   report to the run's step summary.
 
 Both jobs need `PRD_SYNC_TOKEN` (step 2) to do anything — without it, `plan`
-posts an explanatory comment (or, on a fork PR, writes to the step summary
-instead, see below) and `apply` writes a "not configured" summary. Neither
-job fails when the secret is missing; this keeps a freshly cloned repo from
-showing a red X on every PRD change before it's configured.
+writes an explanatory message to the run's step summary (see below; it never
+posts a PR comment in this case) and `apply` writes a "not configured"
+summary. Neither job fails when the secret is missing; this keeps a freshly
+cloned repo from showing a red X on every PRD change before it's configured.
 
 **Permissions.** `plan` needs `pull-requests: write` to post its comment —
 using the default `GITHUB_TOKEN`, never `PRD_SYNC_TOKEN`. `apply` needs only
