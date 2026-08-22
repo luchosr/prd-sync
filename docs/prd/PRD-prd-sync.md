@@ -452,3 +452,4 @@ Computes the diff between the PRD and GitHub's current state, and applies it ide
 | 4     | E6              | Publishable and usable by third parties                      |
 
 <!-- e5 workflow verification: comment idempotency test, safe to delete -->
+<!-- second push, same PR -->
