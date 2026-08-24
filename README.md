@@ -6,8 +6,11 @@ Write your product requirements once, in your repository, next to your code.
 `prd-sync` reads the user stories and creates the matching issues, sub-issues
 and project items. Edit the PRD, push, and the board follows.
 
-> **Status: pre-release.** The parser and sync engine are under active
-> development. Not yet published to npm.
+> **Status: pre-release.** Not yet published to npm, so there is no `npx
+> prd-sync` and no `uses:` action to drop into another repository. Using it
+> today means cloning this repository and running the CLI from the clone
+> against *your* repo and *your* Project — which is exactly what the
+> Quickstart below does.
 
 ## Why
 
@@ -42,7 +45,78 @@ unchanged PRD produces no changes at all.
 
 ## Quickstart
 
-### 1. Write a PRD
+### Prerequisites
+
+About 15 minutes, plus:
+
+- **Node 24 or newer** (`node --version`) and **pnpm 10** (`corepack enable pnpm`)
+- **Git**, to clone this repository
+- A **GitHub repository** where the issues will live
+- A **GitHub Project v2** already created (its number is in the URL)
+- Permission to create a **classic personal access token** on your account
+
+### 1. Clone and build
+
+```bash
+git clone https://github.com/luchosr/prd-sync.git
+cd prd-sync
+pnpm install
+pnpm build
+```
+
+```bash
+node dist/cli.js --help
+```
+
+Every command below runs from this directory. The config path and the PRD
+globs resolve relative to your current directory, so running from a
+subdirectory will not find them.
+
+### 2. Create a GitHub Project
+
+Create a GitHub Project v2 (or use an existing one) and note its number,
+visible in the URL (`github.com/users/<you>/projects/<number>`). If you plan
+to use `fieldMapping`, create the `Priority` and `Estimate` fields on the
+Project now — missing fields produce a warning, not a failure.
+
+### 3. Create a token
+
+prd-sync needs a **classic** personal access token with the `repo` and
+`project` scopes.
+
+The `GITHUB_TOKEN` that GitHub Actions provides by default **cannot write to
+Projects v2**, so this step is not optional. Fine-grained PATs do not work
+either — prd-sync verifies scopes through the `X-OAuth-Scopes` header, which
+only classic tokens send. A GitHub App with organisation permission
+`Projects: write` is the other supported route.
+
+1. Go to <https://github.com/settings/tokens> → **Generate new token** →
+   **Generate new token (classic)**.
+2. Name it (`prd-sync`) and pick an expiration.
+3. Tick **`repo`** and **`project`**.
+4. **Generate token**, then copy it — GitHub shows it only once.
+
+Then wire it to the consumer you are using.
+
+**For the CLI, locally.** prd-sync reads the token only from the
+`GITHUB_TOKEN` environment variable — never from the config file, so a token
+can never be committed by accident:
+
+```bash
+export GITHUB_TOKEN=ghp_your_token_here
+```
+
+**For the workflow, in CI.** Add the same token to the repository as a secret
+named `PRD_SYNC_TOKEN` (Settings → Secrets and variables → Actions → New
+repository secret). The workflow passes it to the CLI as `GITHUB_TOKEN`. It
+also uses the built-in `GITHUB_TOKEN`, but only to post its PR comment —
+never to sync.
+
+### 4. Write your PRD
+
+```bash
+cp examples/PRD-example.md my-prd.md
+```
 
 ```markdown
 ## E1 — Checkout
@@ -63,32 +137,26 @@ unchanged PRD produces no changes at all.
 - [ ] End-to-end tests
 ```
 
-Story IDs (`US-01`) are the sync keys. **Never renumber or reuse them.**
+Story IDs (`US-01`) are the sync keys. **Never renumber or reuse them.** The
+snippet above is [`examples/PRD-example.md`](examples/PRD-example.md), ready
+to copy; [`docs/prd/PRD-prd-sync.md`](docs/prd/PRD-prd-sync.md) is a full-size
+real example — this project's own backlog.
 
-### 2. Create a Project and a token
+> Keep your PRD **outside `docs/prd/`**. That directory holds prd-sync's own
+> backlog, which already defines `US-01`; two files defining the same story ID
+> is a parse error, not a merge.
 
-Create a GitHub Project v2 and note its number (visible in the URL).
+### 5. Configure
 
-Then create a **classic PAT** with the `repo` and `project` scopes, and add it
-to the repository as a secret named `PRD_SYNC_TOKEN`.
-
-> The default `GITHUB_TOKEN` in Actions **cannot write to Projects v2**. This
-> step is not optional. A GitHub App with organisation permission
-> `Projects: write` works too.
->
-> The shipped workflow (below) also uses the default `GITHUB_TOKEN` — but
-> only to post/update its PR comment, never to sync. `PRD_SYNC_TOKEN` is the
-> only credential with write access to issues and the Project.
-
-### 3. Configure
-
-`prd-sync.config.json` in the repository root:
+`prd-sync.config.json` already exists in the clone and points at *this*
+project. Replace `repo`, add your `projectNumber`, and point `sources` at the
+PRD you wrote in step 4:
 
 ```json
 {
   "repo": "owner/repo",
   "projectNumber": 3,
-  "sources": ["docs/prd/**/*.md"],
+  "sources": ["my-prd.md"],
   "syncLabel": "prd-sync",
   "fieldMapping": {
     "priority": "Priority",
@@ -101,16 +169,27 @@ to the repository as a secret named `PRD_SYNC_TOKEN`.
 The fields named in `fieldMapping` must already exist in the Project. Missing
 fields produce a warning, not a failure.
 
-### 4. Preview locally
+### 6. Preview
 
 ```bash
-npx prd-sync sync --dry-run
+export GITHUB_TOKEN=ghp_your_token_here
+node dist/cli.js sync --dry-run
 ```
 
-This prints the plan and writes nothing. Always run it before your first real
-sync.
+`--dry-run` writes nothing, but it does read GitHub, so it needs a valid
+token: prd-sync checks the token and its scopes before it plans anything.
+Always run this before your first real sync.
 
-### 5. Automate
+### 7. Apply
+
+```bash
+node dist/cli.js sync
+```
+
+Exit `0` on success (with or without changes), `1` on error. See
+`## Automate in CI` below to run this on every push instead of by hand.
+
+## Automate in CI
 
 The shipped workflow, [`.github/workflows/prd-sync.yml`](.github/workflows/prd-sync.yml),
 has two jobs:
@@ -124,9 +203,9 @@ has two jobs:
   for a preview that writes nothing. It performs the real sync and writes the
   report to the run's step summary.
 
-Both jobs need `PRD_SYNC_TOKEN` (step 2) to do anything — without it, `plan`
-writes an explanatory message to the run's step summary (see below; it never
-posts a PR comment in this case) and `apply` writes a "not configured"
+Both jobs need `PRD_SYNC_TOKEN` (step 3 above) to do anything — without it,
+`plan` writes an explanatory message to the run's step summary (see below; it
+never posts a PR comment in this case) and `apply` writes a "not configured"
 summary. Neither job fails when the secret is missing; this keeps a freshly
 cloned repo from showing a red X on every PRD change before it's configured.
 
@@ -167,6 +246,10 @@ Unrecognised sections are ignored without error.
 | Story points  | Project `Estimate` field     |
 
 ## CLI
+
+Until prd-sync is published to npm, invoke it from the clone as
+`node dist/cli.js sync …`. The synopsis below shows the command name it will
+have once installed.
 
 ```
 prd-sync sync [options]
