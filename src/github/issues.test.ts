@@ -124,6 +124,74 @@ describe("linkSubIssue", () => {
     expect(graphqlCalls).toBe(0);
   });
 
+  describe("on the real 'already has a parent' 422 (observed live)", () => {
+    const HAS_PARENT_MESSAGE = "Issue may not contain duplicate sub-issues and Sub issue may only have one parent";
+
+    function hasParentHandlers(parentLookup: () => Response, onGraphql: () => void) {
+      return [
+        restPost("/repos/:owner/:repo/issues/:issueNumber/sub_issues", () =>
+          HttpResponse.json({ message: HAS_PARENT_MESSAGE }, { status: 422 }),
+        ),
+        restGet("/repos/:owner/:repo/issues/:issueNumber/parent", ({ params }) => {
+          expect(params.issueNumber).toBe(String(CHILD.number));
+          return parentLookup();
+        }),
+        graphqlOperation("mutation", "AddSubIssue", () => {
+          onGraphql();
+          return HttpResponse.json({ data: { addSubIssue: { subIssue: { id: CHILD.nodeId, number: CHILD.number } } } });
+        }),
+      ];
+    }
+
+    it("resolves as idempotent when the child's current parent is the requested one", async () => {
+      let graphqlCalls = 0;
+      server.use(
+        ...hasParentHandlers(
+          () => HttpResponse.json({ number: PARENT.number, id: PARENT.id, node_id: PARENT.nodeId }),
+          () => (graphqlCalls += 1),
+        ),
+      );
+      const ctx = createClient({ auth: "token", repo: REPO });
+
+      await expect(linkSubIssue(ctx, PARENT, CHILD)).resolves.toBeUndefined();
+      expect(graphqlCalls).toBe(0);
+    });
+
+    it("fails with an actionable error when the child belongs to a different parent", async () => {
+      let graphqlCalls = 0;
+      server.use(
+        ...hasParentHandlers(
+          () => HttpResponse.json({ number: 99, id: 999, node_id: "OTHER_NODE" }),
+          () => (graphqlCalls += 1),
+        ),
+      );
+      const ctx = createClient({ auth: "token", repo: REPO });
+
+      const error = await linkSubIssue(ctx, PARENT, CHILD).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(GithubClientError);
+      const issue = (error as GithubClientError).issues[0];
+      expect(issue?.code).toBe("sub-issue-link-failed");
+      expect(issue?.message).toContain("different parent");
+      expect(graphqlCalls).toBe(0);
+    });
+
+    it("keeps the original failure when the parent cannot be looked up", async () => {
+      let graphqlCalls = 0;
+      server.use(
+        ...hasParentHandlers(
+          () => HttpResponse.json({ message: "Not Found" }, { status: 404 }),
+          () => (graphqlCalls += 1),
+        ),
+      );
+      const ctx = createClient({ auth: "token", repo: REPO });
+
+      const error = await linkSubIssue(ctx, PARENT, CHILD).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(GithubClientError);
+      expect((error as GithubClientError).issues[0]?.message).toBe(HAS_PARENT_MESSAGE);
+      expect(graphqlCalls).toBe(0);
+    });
+  });
+
   it("falls back to GraphQL addSubIssue with node ids on a 404, retrying once with the GraphQL-Features header after a feature-unavailable error (US-03 AC2)", async () => {
     let graphqlAttempts = 0;
     server.use(
