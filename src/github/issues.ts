@@ -55,6 +55,52 @@ function isAlreadyLinkedFailure(failure: NormalizedFailure): boolean {
   return failure.status === 422 && failure.message !== undefined && ALREADY_LINKED_PATTERN.test(failure.message);
 }
 
+// What GitHub actually returns when re-linking a child that already has a
+// parent (observed live): "Issue may not contain duplicate sub-issues and
+// Sub issue may only have one parent". The message covers BOTH "already
+// under this parent" (idempotent) and "already under a different parent"
+// (a real conflict), so it is never trusted on its own: linkSubIssue asks
+// GitHub for the child's actual parent to tell the two apart. Checked
+// before the feature-gap predicate, which would otherwise match the
+// substring "sub-issues" and wrongly fall back to GraphQL.
+const HAS_PARENT_PATTERN = /duplicate sub[_-]?issues?|only have one parent/i;
+
+function isHasParentFailure(failure: NormalizedFailure): boolean {
+  return failure.status === 422 && failure.message !== undefined && HAS_PARENT_PATTERN.test(failure.message);
+}
+
+// GET /repos/{owner}/{repo}/issues/{issue_number}/parent. Returns the
+// parent's internal id, or undefined when it cannot be determined (no
+// parent, endpoint unavailable, any other failure) — callers then keep the
+// original link failure rather than guessing.
+async function getParentId(ctx: ClientContext, child: IssueRef): Promise<number | undefined> {
+  try {
+    const { data } = await ctx.rest(
+      "getParentIssue",
+      (octokit) =>
+        octokit.request("GET /repos/{owner}/{repo}/issues/{issue_number}/parent", {
+          owner: ctx.repo.owner,
+          repo: ctx.repo.repo,
+          issue_number: child.number,
+        }),
+      githubIssueSchema,
+    );
+    return data.id;
+  } catch {
+    return undefined;
+  }
+}
+
+function differentParentError(failure: NormalizedFailure, parent: IssueRef, child: IssueRef): GithubClientError {
+  return new GithubClientError([
+    {
+      ...subIssueLinkFailedIssue(failure),
+      message: `Issue #${child.number} is already a sub-issue of a different parent, not #${parent.number}.`,
+      suggestion: `Remove #${child.number} from its current parent in GitHub, then re-run the sync.`,
+    },
+  ]);
+}
+
 // Decision #9: 404/410/501 always signal a feature gap; 415/422 only when
 // the message names it. GraphQL failures carry no HTTP status, so they fall
 // through to the message-only check (also used for the header-retry
@@ -182,6 +228,12 @@ export async function linkSubIssue(ctx: ClientContext, parent: IssueRef, child: 
   } catch (error) {
     if (isNormalizedFailure(error)) {
       if (isAlreadyLinkedFailure(error)) return;
+      if (isHasParentFailure(error)) {
+        const actualParentId = await getParentId(ctx, child);
+        if (actualParentId === parent.id) return;
+        if (actualParentId !== undefined) throw differentParentError(error, parent, child);
+        toLinkFailedError(error);
+      }
       if (isSubIssueFeatureGap(error)) {
         await linkSubIssueViaGraphql(ctx, parent, child);
         return;
